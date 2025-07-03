@@ -1,0 +1,119 @@
+# Configuración principal de Chaos Engineering
+enabled: true
+
+# Programación de experimentos
+schedule:
+  days: 
+    - "monday"
+    - "tuesday"
+    - "wednesday"
+    - "thursday"
+    - "friday"
+  hours:
+    start: 9
+    end: 17
+
+# Configuración de targets
+targets:
+  services:
+    - "api-service"
+    - "auth-service"
+    - "db-service"
+    - "cache-service"
+  excluded_services: []
+  min_healthy_instances: 2
+  max_instances_to_kill: 1
+
+# Configuración de experimentos
+experiments:
+  instance_termination:
+    enabled: true
+    probability: 0.1
+    check_interval_seconds: 300
+  
+  network_latency:
+    enabled: true
+    probability: 0.05
+    delay_ms: 500
+    variance_ms: 100
+    
+  resource_exhaustion:
+    enabled: true
+    probability: 0.03
+    cpu_threshold: 0.9
+    memory_threshold: 0.9
+    
+  network_partition:
+    enabled: false
+    probability: 0.01
+    isolation_type: "partial"
+    
+  chaos_gorilla:
+    enabled: false
+    probability: 0.001
+    
+  chaos_kong:
+    enabled: false
+    # Requiere confirmación manual
+
+# Configuración de monitoreo
+monitoring:
+  collection_interval_seconds: 5
+  metrics_retention_hours: 24
+  alert_thresholds:
+    response_time_ms: 1000
+    error_rate_percent: 5
+    availability_percent: 90
+    cpu_usage_percent: 85
+    memory_usage_percent: 85
+
+# Configuración de seguridad
+safety:
+  enabled: true
+  dry_run_mode: false
+  require_confirmation_for_destructive: true
+  max_concurrent_experiments: 3
+  emergency_stop_enabled: true
+
+# Configuración de servicios
+services:
+  api-service:
+    type: "api-gateway"
+    initial_instances: 3
+    min_instances: 2
+    max_instances: 10
+    region: "us-east-1"
+    
+  auth-service:
+    type: "auth-service"
+    initial_instances: 2
+    min_instances: 1
+    max_instances: 5
+    region: "us-east-1"
+    
+  db-service:
+    type: "database"
+    initial_instances: 2
+    min_instances: 1
+    max_instances: 3
+    region: "us-east-1"
+    
+  cache-service:
+    type: "cache"
+    initial_instances: 2
+    min_instances: 1
+    max_instances: 4
+    region: "us-east-1"
+
+# Configuración de load balancer
+load_balancer:
+  strategy: "health_based"  # round_robin, least_connections, random, weighted_round_robin, health_based
+  health_check_interval: 10
+  
+# Configuración de reportes
+reporting:
+  enabled: true
+  output_directory: "./reports"
+  formats: ["html", "json", "csv"]
+  include_charts: true
+  auto_generate_interval_hours: 1
