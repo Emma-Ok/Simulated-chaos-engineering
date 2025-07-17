@@ -351,7 +351,11 @@ class LoadBalancer:
         - Distribución equilibrada entre servicios
         """
         def traffic_generator():
-            end_time = time.time() + duration_seconds
+            if duration_seconds is None:
+                end_time = float('inf')  # Ejecutar indefinidamente
+            else:
+                end_time = time.time() + duration_seconds
+            
             service_names = list(self.services.keys())
             consecutive_errors = 0
             last_error_log = 0
