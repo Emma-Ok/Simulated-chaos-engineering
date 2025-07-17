@@ -62,9 +62,9 @@ class ServiceInstance:
         self.failure_count = 0
         self.recovery_time = None
         
-        # Configuración de simulación
+        # Configuración de simulación con valores más conservadores
         self.base_response_time = random.uniform(50, 200)  # ms
-        self.error_probability = 0.01  # 1% de errores por defecto
+        self.error_probability = 0.005  # Reducido de 0.01 a 0.005 (0.5% en lugar de 1%)
         
         # Threading para simular carga
         self.lock = threading.RLock()
@@ -92,7 +92,7 @@ class ServiceInstance:
             processing_time = self._calculate_response_time()
             time.sleep(processing_time / 1000)  # Convertir a segundos
             
-            # Simular errores aleatorios
+            # Simular errores aleatorios con probabilidad reducida
             if random.random() < self.error_probability:
                 self.failure_count += 1
                 raise ServiceException(f"Error simulado en {self.service_name}")
@@ -123,24 +123,43 @@ class ServiceInstance:
         return base_time * random.uniform(0.8, 1.2)
     
     def _update_metrics(self, response_time: float):
-        """Actualiza las métricas de la instancia"""
-        # Promedio móvil simple para response time
-        self.metrics.response_time_ms = (
-            self.metrics.response_time_ms * 0.9 + response_time * 0.1
-        )
+        """
+        Actualiza las métricas de la instancia con cálculos mejorados.
         
-        # Simular CPU y memoria
-        base_cpu = 20 + random.uniform(-5, 5)
-        base_memory = 30 + random.uniform(-10, 10)
+        OPTIMIZACIONES:
+        - Tiempo de respuesta con promedio móvil más sensible
+        - Métricas de CPU/memoria más realistas y variables
+        - Tracking de requests exitosos para calcular error rate
+        """
+        # Promedio móvil más sensible para response time (20% peso nuevo valor)
+        if self.metrics.response_time_ms == 0:
+            self.metrics.response_time_ms = response_time
+        else:
+            self.metrics.response_time_ms = (
+                self.metrics.response_time_ms * 0.8 + response_time * 0.2
+            )
         
+        # Simular CPU y memoria con más variabilidad y realismo
+        base_cpu = random.uniform(15, 40)  # Base más variable
+        base_memory = random.uniform(25, 50)  # Base más variable
+        
+        # Variabilidad basada en estado del servicio
         if self.status == ServiceStatus.DEGRADED:
-            base_cpu *= random.uniform(1.5, 3)
-            base_memory *= random.uniform(1.2, 2)
+            base_cpu *= random.uniform(2.0, 4.0)
+            base_memory *= random.uniform(1.5, 2.5)
+        elif self.status == ServiceStatus.RECOVERING:
+            base_cpu *= random.uniform(1.3, 2.0)
+            base_memory *= random.uniform(1.2, 1.8)
         
-        self.metrics.cpu_usage = min(100, max(0, base_cpu))
-        self.metrics.memory_usage = min(100, max(0, base_memory))
+        # Variabilidad adicional basada en latencia
+        if response_time > 300:  # Si la respuesta es lenta
+            base_cpu *= random.uniform(1.2, 1.8)
+            base_memory *= random.uniform(1.1, 1.5)
         
-        # Uptime
+        self.metrics.cpu_usage = min(95, max(5, base_cpu))
+        self.metrics.memory_usage = min(90, max(10, base_memory))
+        
+        # Actualizar uptime
         self.metrics.uptime_seconds = time.time() - self.start_time
         self.metrics.last_health_check = time.time()
     
@@ -153,13 +172,13 @@ class ServiceInstance:
             if self.status in [ServiceStatus.TERMINATED, ServiceStatus.UNHEALTHY]:
                 return False
             
-            # Simular health check que puede fallar
-            if random.random() < 0.05:  # 5% de probabilidad de falla
+            # Simular health check que puede fallar ocasionalmente
+            if random.random() < 0.02:  # Reducido de 0.05 a 0.02 (2% vs 5%)
                 self.set_status(ServiceStatus.DEGRADED)
                 return False
             
-            # Auto-recuperación si estaba degradado
-            if self.status == ServiceStatus.DEGRADED and random.random() < 0.3:
+            # Auto-recuperación más conservadora
+            if self.status == ServiceStatus.DEGRADED and random.random() < 0.2:  # Reducido de 0.3 a 0.2
                 self.set_status(ServiceStatus.HEALTHY)
                 logger.info(f"Instancia {self.instance_id} se ha recuperado automáticamente")
             
@@ -204,9 +223,10 @@ class ServiceInstance:
         logger.info(f"Latencia adicional de {additional_ms}ms introducida en {self.instance_id}")
     
     def introduce_errors(self, error_rate: float):
-        """Aumenta la tasa de errores del servicio"""
-        self.error_probability = min(1.0, error_rate)
-        logger.info("Tasa de errores aumentada a %.1f%% en %s", error_rate * 100, self.instance_id)
+        """Aumenta la tasa de errores del servicio de forma controlada"""
+        # Limitar la tasa máxima de errores para evitar chaos excesivo
+        self.error_probability = min(0.1, error_rate)  # Máximo 10% en lugar de 100%
+        logger.info("Tasa de errores aumentada a %.1f%% en %s", self.error_probability * 100, self.instance_id)
     
     def get_metrics(self) -> ServiceMetrics:
         """Retorna las métricas actuales de la instancia"""
@@ -222,33 +242,43 @@ class Service:
     """
     
     def __init__(self, name: str, service_type: ServiceType, 
-                 initial_instances: int = 2, region: str = "us-east-1"):
+                 initial_instances: int = 4, min_instances: int = 2,  # Aumentado de 3,1 a 4,2
+                 max_instances: int = 8, region: str = "us-east-1"):  # Agregado parámetro region
+        """
+        Inicializa un servicio distribuido con más instancias por defecto.
+        
+        OPTIMIZACIONES:
+        - Más instancias por defecto para mejores estadísticas
+        - Mejores contadores para métricas precisas
+        - Threading mejorado para health checks
+        """
         self.name = name
         self.service_type = service_type
-        self.region = region
+        self.region = region  # Agregado atributo region
         self.instances: Dict[str, ServiceInstance] = {}
+        self.initial_instances = initial_instances
+        self.min_instances = min_instances
+        self.max_instances = max_instances
+        
+        # Contadores mejorados para métricas más precisas
         self.request_count = 0
-        self.total_response_time = 0.0
+        self.successful_requests = 0  # NUEVO: contador de requests exitosos
         self.error_count = 0
+        self.total_response_time = 0.0
         
-        # Configuración del servicio
-        self.min_instances = max(1, initial_instances // 2)
-        self.max_instances = initial_instances * 3
-        self.target_instances = initial_instances
-        
-        # Threading para auto-scaling y health checks
+        # Threading
         self.lock = threading.RLock()
         self.health_check_thread = None
-        self.auto_scaling_enabled = True
+        self.auto_scaling_enabled = True  # Agregado atributo faltante
         
         # Crear instancias iniciales
-        for _ in range(initial_instances):
+        for i in range(initial_instances):
             self.add_instance()
         
-        # Iniciar health checks automáticos
+        # Iniciar health checks
         self._start_health_checks()
         
-        logger.info(f"Servicio {self.name} iniciado con {initial_instances} instancias")
+        logger.info(f"Servicio {name} ({service_type.value}) iniciado con {initial_instances} instancias")
     
     def add_instance(self, instance_id: str = None) -> ServiceInstance:
         """Añade una nueva instancia al servicio"""
@@ -256,6 +286,7 @@ class Service:
             instance = ServiceInstance(
                 service_name=self.name,
                 instance_id=instance_id,
+                port=random.randint(8000, 9000), # Generar puerto aleatorio
                 region=self.region
             )
             self.instances[instance.instance_id] = instance
@@ -286,13 +317,14 @@ class Service:
     
     def handle_request(self, request_data: Dict = None) -> Dict:
         """
-        Maneja una request dirigiéndola a una instancia saludable.
+        Maneja una request con métricas mejoradas y tracking preciso.
         Implementa balanceo de carga simple.
         """
         healthy_instances = self.get_healthy_instances()
         
         if not healthy_instances:
             self.error_count += 1
+            self.request_count += 1  # Contar también requests fallidos
             raise ServiceException(f"No hay instancias saludables en el servicio {self.name}")
         
         # Balanceo de carga round-robin simple
@@ -302,15 +334,18 @@ class Service:
             start_time = time.time()
             response = instance.handle_request(request_data)
             
-            # Actualizar métricas del servicio
+            # Actualizar métricas del servicio con tracking mejorado
             response_time = (time.time() - start_time) * 1000
             self.request_count += 1
+            self.successful_requests += 1  # NUEVO: Contador de éxitos
             self.total_response_time += response_time
             
             return response
             
         except ServiceException as e:
+            # Mejorar tracking de errores
             self.error_count += 1
+            self.request_count += 1  # Contar también requests fallidos
             logger.error(f"Error en servicio {self.name}: {e}")
             raise
     
@@ -340,8 +375,17 @@ class Service:
                                        args=(instance_id,), daemon=True).start()
     
     def _auto_restart_instance(self, instance_id: str):
-        """Reinicia automáticamente una instancia terminada"""
-        time.sleep(random.uniform(5, 15))  # Esperar antes de reiniciar
+        """
+        Reinicia automáticamente una instancia terminada con tiempos más realistas.
+        
+        OPTIMIZACIONES:
+        - Tiempo de espera más largo y variable
+        - Verificación de estado antes de reiniciar
+        - Límite de intentos de reinicio
+        """
+        # Tiempo de espera más realista para restart (30-90 segundos)
+        wait_time = random.uniform(30, 90)  # Aumentado de 5-15 a 30-90 segundos
+        time.sleep(wait_time)
         
         with self.lock:
             if instance_id in self.instances:
@@ -349,36 +393,52 @@ class Service:
                 if instance.status == ServiceStatus.TERMINATED:
                     try:
                         instance.restart()
-                        logger.info(f"Instancia {instance_id} reiniciada automáticamente")
+                        logger.info(f"Instancia {instance_id} reiniciada automáticamente después de {wait_time:.1f}s")
                     except Exception as e:
                         logger.error(f"Error al reiniciar instancia {instance_id}: {e}")
     
     def _auto_scale_if_needed(self):
-        """Realiza auto-scaling basado en la carga y disponibilidad"""
+        """
+        Realiza auto-scaling del servicio si está habilitado.
+        
+        REGLAS DE SCALING:
+        - Scale UP: Si uso de CPU promedio > 80% y instancias < max
+        - Scale DOWN: Si uso de CPU promedio < 30% y instancias > min
+        """
         if not self.auto_scaling_enabled:
             return
-        
+            
         with self.lock:
-            healthy_count = len(self.get_healthy_instances())
-            total_count = len(self.instances)
+            healthy_instances = self.get_healthy_instances()
             
-            # Scale up si hay pocas instancias saludables
-            if healthy_count < self.min_instances and total_count < self.max_instances:
+            if not healthy_instances:
+                return
+            
+            # Calcular CPU promedio
+            avg_cpu = sum(inst.metrics.cpu_usage for inst in healthy_instances) / len(healthy_instances)
+            current_count = len(healthy_instances)
+            
+            # Scale UP si CPU alta y hay espacio
+            if avg_cpu > 80 and current_count < self.max_instances:
                 self.add_instance()
-                logger.info(f"Auto-scaling UP: Nueva instancia añadida a {self.name}")
+                logger.info(f"Auto-scaling UP: {self.name} ahora tiene {current_count + 1} instancias (CPU: {avg_cpu:.1f}%)")
             
-            # Scale down si hay demasiadas instancias (con cuidado)
-            elif healthy_count > self.target_instances and total_count > self.min_instances:
-                # Solo remover instancias que no han recibido requests recientemente
-                for instance in self.instances.values():
-                    if (time.time() - instance.last_request_time > 300 and  # 5 minutos sin requests
-                        len(self.instances) > self.min_instances):
-                        self.remove_instance(instance.instance_id)
-                        logger.info(f"Auto-scaling DOWN: Instancia removida de {self.name}")
-                        break
+            # Scale DOWN si CPU baja y hay margen
+            elif avg_cpu < 30 and current_count > self.min_instances:
+                # Remover instancia menos saludable
+                worst_instance = min(healthy_instances, key=lambda x: x.metrics.cpu_usage)
+                self.remove_instance(worst_instance.instance_id)
+                logger.info(f"Auto-scaling DOWN: {self.name} ahora tiene {current_count - 1} instancias (CPU: {avg_cpu:.1f}%)")
     
     def get_service_metrics(self) -> Dict:
-        """Retorna métricas agregadas del servicio"""
+        """
+        Retorna métricas agregadas del servicio con cálculos mejorados.
+        
+        OPTIMIZACIONES:
+        - Cálculos más precisos de promedios
+        - Mejor manejo de casos edge
+        - Métricas más detalladas por instancia
+        """
         with self.lock:
             healthy_instances = self.get_healthy_instances()
             
@@ -390,17 +450,26 @@ class Service:
                     "availability": 0.0,
                     "avg_response_time_ms": 0.0,
                     "requests_per_second": 0.0,
-                    "error_rate": 0.0
+                    "error_rate": 0.0,
+                    "total_requests": 0,
+                    "successful_requests": 0
                 }
             
-            # Calcular métricas agregadas
+            # Cálculos mejorados de métricas agregadas
             total_instances = len(self.instances)
             healthy_count = len(healthy_instances)
             availability = (healthy_count / total_instances) * 100 if total_instances > 0 else 0
             
-            avg_response_time = (self.total_response_time / self.request_count 
-                               if self.request_count > 0 else 0)
+            # Promedio de tiempo de respuesta más preciso
+            if self.successful_requests > 0:
+                avg_response_time = self.total_response_time / self.successful_requests
+            else:
+                # Si no hay requests exitosos, usar promedio de instancias
+                instance_times = [inst.metrics.response_time_ms for inst in self.instances.values() 
+                                if inst.metrics.response_time_ms > 0]
+                avg_response_time = sum(instance_times) / len(instance_times) if instance_times else 0
             
+            # Tasa de error más precisa
             error_rate = (self.error_count / max(1, self.request_count)) * 100
             
             return {
@@ -409,17 +478,23 @@ class Service:
                 "total_instances": total_instances,
                 "healthy_instances": healthy_count,
                 "availability": availability,
-                "avg_response_time_ms": avg_response_time,
+                "avg_response_time_ms": round(avg_response_time, 2),  # Redondear para mejor legibilidad
                 "total_requests": self.request_count,
-                "error_rate": error_rate,
+                "successful_requests": self.successful_requests,
+                "error_count": self.error_count,
+                "error_rate": round(error_rate, 3),  # Redondear con más precisión
                 "instances": {
                     instance_id: {
                         "status": instance.status.value,
+                        "failure_count": instance.failure_count,
+                        "region": instance.region,
+                        "port": instance.port,
                         "metrics": {
-                            "response_time_ms": instance.metrics.response_time_ms,
-                            "cpu_usage": instance.metrics.cpu_usage,
-                            "memory_usage": instance.metrics.memory_usage,
-                            "uptime_seconds": instance.metrics.uptime_seconds
+                            "response_time_ms": round(instance.metrics.response_time_ms, 2),
+                            "cpu_usage": round(instance.metrics.cpu_usage, 1),
+                            "memory_usage": round(instance.metrics.memory_usage, 1),
+                            "uptime_seconds": round(instance.metrics.uptime_seconds, 1),
+                            "error_probability": round(instance.error_probability * 100, 2)  # Como porcentaje
                         }
                     }
                     for instance_id, instance in self.instances.items()

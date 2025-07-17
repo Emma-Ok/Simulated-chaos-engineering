@@ -3,12 +3,17 @@
 Simulador de Chaos Engineering - Archivo principal
 Demonstración completa de principios y prácticas de Chaos Engineering
 
+TIEMPOS OPTIMIZADOS:
+- Demo rápida: 4 minutos máximo
+- Simulación por defecto: 4 minutos
+- Fases de demo: 30-60 segundos cada una
+
 Uso:
-    python main.py                              # Simulación básica con configuración por defecto
-    python main.py --config config/custom.yaml # Simulación con configuración personalizada
-    python main.py --duration 60               # Simulación de 60 minutos
-    python main.py --interactive               # Modo interactivo
-    python main.py --demo                      # Demostración rápida
+    python main.py                              # Interfaz de menús (recomendado)
+    python main.py --demo                       # Demostración rápida de 4 minutos
+    python main.py --duration 4                 # Simulación de 4 minutos
+    python main.py --config config/custom.yaml # Usar configuración personalizada
+    python main.py --interactive               # Modo interactivo original
 """
 
 import argparse
@@ -29,47 +34,53 @@ import logging
 def setup_demo_system() -> ChaosEngineeringSystem:
     """
     Configura un sistema de demostración con servicios predefinidos.
+    
+    CONFIGURACIÓN OPTIMIZADA PARA VELOCIDAD:
+    - Intervalos cortos para demostración rápida
+    - Probabilidades altas para actividad visible
+    - Tiempos de monitoreo reducidos
     """
     logger = logging.getLogger(__name__)
     logger.info("🎮 Configurando sistema de demostración...")
     
-    # Configuración de demostración
+    # Configuración de demostración con TIEMPOS OPTIMIZADOS
     demo_config = {
         "enabled": True,
         "schedule": {
             "days": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"],
-            "hours": {"start": 0, "end": 23}
+            "hours": {"start": 0, "end": 23}  # 24/7 para demos
         },
         "targets": {
             "services": ["api-service", "auth-service", "db-service", "cache-service"],
             "excluded_services": [],
-            "min_healthy_instances": 1,
+            "min_healthy_instances": 1,  # Permitir más chaos para demos
             "max_instances_to_kill": 1
         },
         "experiments": {
-            "instance_termination": {"enabled": True, "probability": 0.3},
-            "network_latency": {"enabled": True, "probability": 0.2, "delay_ms": 500},
-            "resource_exhaustion": {"enabled": True, "probability": 0.1}
+            # PROBABILIDADES ALTAS para demostración visible
+            "instance_termination": {"enabled": True, "probability": 0.5},  # 50% vs 30%
+            "network_latency": {"enabled": True, "probability": 0.3, "delay_ms": 300},  # 30% vs 20%, 300ms vs 500ms
+            "resource_exhaustion": {"enabled": True, "probability": 0.2}  # 20% vs 10%
         },
         "monitoring": {
-            "collection_interval_seconds": 5,
+            "collection_interval_seconds": 2,  # 2s vs 5s - más frecuente
             "alert_thresholds": {
-                "response_time_ms": 1000,
-                "error_rate_percent": 5,
-                "availability_percent": 80
+                "response_time_ms": 800,   # 800ms vs 1000ms - más sensible
+                "error_rate_percent": 3,   # 3% vs 5% - más estricto
+                "availability_percent": 85  # 85% vs 80% - más exigente
             }
         },
         "safety": {
             "enabled": True,
             "dry_run_mode": False,
-            "require_confirmation_for_destructive": False,
-            "max_concurrent_experiments": 2
+            "require_confirmation_for_destructive": False,  # Sin confirmación para demos
+            "max_concurrent_experiments": 3  # Más experimentos simultáneos
         },
         "services": {
             "api-service": {
                 "type": "api-gateway",
                 "initial_instances": 3,
-                "min_instances": 2,
+                "min_instances": 1,  # Menos mínimo para más drama
                 "max_instances": 5,
                 "region": "us-east-1"
             },
@@ -114,16 +125,23 @@ def setup_demo_system() -> ChaosEngineeringSystem:
 
 def run_quick_demo():
     """
-    Ejecuta una demostración rápida de 10 minutos.
+    Ejecuta una demostración rápida de 4 minutos.
+    
+    ESTRUCTURA DE LA DEMO (4 minutos total):
+    - Fase 1: Configuración (30s)
+    - Fase 2: Experimento de Latencia (60s) 
+    - Fase 3: Chaos Monkey (90s)
+    - Fase 4: Diagnóstico final (60s)
     """
     logger = logging.getLogger(__name__)
 
     print("\n" + "="*60)
     print("🔥 DEMOSTRACIÓN RÁPIDA DE CHAOS ENGINEERING")
     print("="*60)
-    print("Duración: 10 minutos")
-    print("Servicios: API Gateway, Auth, Database, Cache")
-    print("Experimentos: Automáticos y manuales")
+    print("⏱️ Duración: 4 minutos optimizados")
+    print("🏗️ Servicios: API Gateway, Auth, Database, Cache")
+    print("🧪 Experimentos: Automáticos y manuales")
+    print("📊 Métricas: Monitoreo en tiempo real")
     print("="*60 + "\n")
 
     try:
@@ -131,10 +149,10 @@ def run_quick_demo():
         with system:
             logger.info("🚀 Iniciando demostración...")
 
-            _demo_phase_1(system)
-            _demo_phase_2(system, logger)
-            _demo_phase_3(system, logger)
-            _demo_phase_4(system, logger)
+            _demo_phase_1(system)      # 30 segundos
+            _demo_phase_2(system, logger)  # 60 segundos  
+            _demo_phase_3(system, logger)  # 90 segundos
+            _demo_phase_4(system, logger)  # 60 segundos
             _demo_generate_report(system, logger)
 
             print("\n" + "="*60)
@@ -160,13 +178,17 @@ def _monitor_experiment_progress(exp_runner, exp_id, interval, total_duration):
             break
 
 def _handle_experiment_error(logger, context, e):
+    """Maneja errores de experimentos de forma consistente."""
     logger.error(f"Error en {context}: {e}")
 
 def _print_phase(title, subtitle, duration_min):
-    print(f"\n{title} {subtitle} ({duration_min} min)")
+    """Imprime el header de una fase de la demo."""
+    duration_seconds = int(duration_min * 60)
+    print(f"\n{title} {subtitle} ({duration_seconds}s)")
     print("-" * 50)
 
 def _show_initial_status(system):
+    """Muestra el estado inicial del sistema."""
     status = system.get_system_status()
     print(f"✅ Servicios activos: {len(status['services'])}")
     for service_name, service_data in status['services'].items():
@@ -175,6 +197,7 @@ def _show_initial_status(system):
         print(f"   {service_name}: {instances} instancias, {availability:.1f}% disponibilidad")
 
 def _run_and_monitor_experiment(system, exp_type, exp_name, exp_args, monitor_interval, monitor_duration, logger, context):
+    """Ejecuta y monitorea un experimento con manejo de errores."""
     try:
         exp_id = system.run_chaos_experiment(exp_type, name=exp_name, **exp_args)
         print(f"🔬 Experimento {exp_type} iniciado: {exp_id}")
@@ -185,51 +208,62 @@ def _run_and_monitor_experiment(system, exp_type, exp_name, exp_args, monitor_in
         return None
 
 def _demo_phase_1(system):
-    _print_phase("📋 FASE 1:", "Configuración del sistema", 2)
-    time.sleep(5)
+    """FASE 1: Configuración inicial del sistema (30 segundos)"""
+    _print_phase("📋 FASE 1:", "Configuración del sistema", 0.5)
+    print("   Inicializando servicios...")
+    time.sleep(2)
     _show_initial_status(system)
-    time.sleep(115)
+    print("   Esperando estabilización...")
+    time.sleep(28)  # Total: 30 segundos
 
 def _demo_phase_2(system, logger):
-    _print_phase("🧪 FASE 2:", "Experimento de Latencia", 3)
-    print("   Añadiendo 800ms de latencia al API Gateway...")
-    _run_and_monitor_experiment(
+    """FASE 2: Experimento de Latencia (60 segundos)"""
+    _print_phase("🧪 FASE 2:", "Experimento de Latencia", 1)
+    print("   Añadiendo 500ms de latencia al API Gateway...")
+    
+    exp_id = _run_and_monitor_experiment(
         system,
         "latency",
         "demo-latency",
-        {"target_service": "api-service", "latency_ms": 800, "duration_seconds": 180},
-        30,
-        180,
+        {"target_service": "api-service", "latency_ms": 500, "duration_seconds": 60},
+        15,  # Monitorear cada 15s
+        60,  # Por 60s total
         logger,
         "experimento de latencia"
     )
 
 def _demo_phase_3(system, logger):
-    _print_phase("🐒 FASE 3:", "Chaos Monkey en acción", 3)
+    """FASE 3: Chaos Monkey en acción (90 segundos)"""
+    _print_phase("🐒 FASE 3:", "Chaos Monkey en acción", 1.5)
     print("🔥 Activando Chaos Monkey...")
-    for _ in range(3):
+    
+    # 3 terminaciones con intervalos de 30s
+    for i in range(3):
         try:
             result = system.force_chaos_monkey()
             if result['status'] == 'success':
                 print(f"   💥 Instancia terminada: {result['service_name']}/{result['instance_id']}")
             else:
                 print(f"   🛡️ Terminación bloqueada: {result['message']}")
-            time.sleep(60)
+            time.sleep(30)  # 30s entre terminaciones
         except Exception as e:
             _handle_experiment_error(logger, "Chaos Monkey", e)
 
 def _demo_phase_4(system, logger):
-    _print_phase("🩺 FASE 4:", "Diagnóstico final", 2)
+    """FASE 4: Diagnóstico final (60 segundos)"""
+    _print_phase("🩺 FASE 4:", "Diagnóstico final", 1)
+    
     exp_id = _run_and_monitor_experiment(
         system,
         "doctor_monkey",
         "demo-diagnosis",
-        {"duration_seconds": 120},
-        120,
-        120,
+        {"duration_seconds": 60},
+        30,  # Monitorear cada 30s
+        60,  # Por 60s total
         logger,
         "diagnóstico"
     )
+    
     if exp_id:
         exp_status = system.experiment_runner.get_experiment_status(exp_id)
         if exp_status and exp_status.get('results'):
@@ -239,6 +273,7 @@ def _demo_phase_4(system, logger):
             print(f"   📈 Disponibilidad: {summary.get('overall_availability', 0):.1f}%")
 
 def _demo_generate_report(system, logger):
+    """Genera el reporte final de la demo."""
     print("\n📊 Generando reporte final...")
     try:
         report_files = system.generate_report(formats=["html"])
@@ -572,16 +607,17 @@ def generate_report_interactive(system: ChaosEngineeringSystem):
         print(f"❌ Error: {e}")
 
 def main():
-    """Función principal"""
+    """Función principal con configuraciones optimizadas de tiempo"""
     parser = argparse.ArgumentParser(
         description="Simulador de Chaos Engineering",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Ejemplos de uso:
-  python main.py --demo                          # Demostración rápida de 10 minutos
-  python main.py --duration 30                  # Simulación de 30 minutos
+Ejemplos de uso (TIEMPOS OPTIMIZADOS):
+  python main.py                                 # Interfaz de menús (por defecto)
+  python main.py --demo                          # Demostración rápida de 4 minutos
+  python main.py --duration 4                   # Simulación de 4 minutos máximo
   python main.py --config config/custom.yaml    # Usar configuración personalizada
-  python main.py --interactive                  # Modo interactivo
+  python main.py --interactive                  # Modo interactivo original
   python main.py --log-level DEBUG              # Logs detallados
         """
     )
@@ -594,20 +630,32 @@ Ejemplos de uso:
     
     parser.add_argument(
         "--duration",
-        help="Duración de la simulación en minutos (default: 30)",
+        help="Duración de la simulación en minutos (default: 4, máximo recomendado: 4)",
         type=int,
-        default=30
+        default=4  # Cambiado de 30 a 4 minutos
     )
     
     parser.add_argument(
         "--interactive",
-        help="Modo interactivo",
+        help="Modo interactivo original (línea de comandos)",
+        action="store_true"
+    )
+    
+    parser.add_argument(
+        "--menu",
+        help="Usar interfaz de menús (por defecto)",
+        action="store_true"
+    )
+    
+    parser.add_argument(
+        "--cli",
+        help="Forzar modo línea de comandos",
         action="store_true"
     )
     
     parser.add_argument(
         "--demo",
-        help="Demostración rápida de 10 minutos",
+        help="Demostración rápida de 4 minutos",
         action="store_true"
     )
     
@@ -625,6 +673,11 @@ Ejemplos de uso:
     )
     
     args = parser.parse_args()
+    
+    # Validar duración máxima
+    if args.duration > 4:
+        print("⚠️ ADVERTENCIA: Duración máxima recomendada es 4 minutos para demos rápidas")
+        print(f"   Configurando duración a {args.duration} minutos como solicitado...")
     
     # Configurar logging
     if args.no_colors:
@@ -645,12 +698,13 @@ Ejemplos de uso:
     print("="*80)
     
     try:
+        # Determinar el modo de ejecución
         if args.demo:
             run_quick_demo()
         elif args.interactive:
             run_interactive_mode()
-        else:
-            # Simulación estándar
+        elif args.cli or args.config or args.duration != 4:  # Cambiado de 30 a 4
+            # Modo línea de comandos tradicional
             logger.info(f"🚀 Iniciando simulación de {args.duration} minutos...")
             
             if args.config:
@@ -665,6 +719,11 @@ Ejemplos de uso:
             # Ejecutar simulación
             with system:
                 system.run_simulation(duration_minutes=args.duration)
+        else:
+            # Modo interfaz de menús (por defecto)
+            from utils.menu_interface import MenuInterface
+            menu_interface = MenuInterface()
+            menu_interface.run()
     
     except KeyboardInterrupt:
         logger.info("\n⚠️ Simulación interrumpida por el usuario")

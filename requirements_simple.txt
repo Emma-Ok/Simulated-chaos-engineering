@@ -1,8 +1,0 @@
-# Dependencias básicas (sin versiones específicas para evitar problemas de compilación)
-matplotlib
-plotly
-pyyaml
-requests
-psutil
-colorama
-tabulate

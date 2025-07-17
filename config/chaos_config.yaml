@@ -1,7 +1,15 @@
-# Configuración principal de Chaos Engineering
+# =============================================================================
+# CONFIGURACIÓN PRINCIPAL DE CHAOS ENGINEERING
+# =============================================================================
+# TIEMPOS OPTIMIZADOS: Máximo 4 minutos para cualquier proceso
+# Ideal para demostraciones rápidas y pruebas de concepto
+
 enabled: true
 
-# Programación de experimentos
+# =============================================================================
+# PROGRAMACIÓN DE EXPERIMENTOS
+# =============================================================================
+# Define cuándo pueden ejecutarse los experimentos automáticamente
 schedule:
   days: 
     - "monday"
@@ -9,111 +17,190 @@ schedule:
     - "wednesday"
     - "thursday"
     - "friday"
+    # - "saturday"    # Descomenta para incluir fines de semana
+    # - "sunday"
   hours:
-    start: 9
-    end: 17
+    start: 9   # Hora de inicio (formato 24h)
+    end: 17    # Hora de fin (formato 24h)
 
-# Configuración de targets
+# =============================================================================
+# CONFIGURACIÓN DE TARGETS (OBJETIVOS)
+# =============================================================================
+# Define qué servicios pueden ser afectados y las reglas de seguridad
 targets:
   services:
     - "api-service"
-    - "auth-service"
+    - "auth-service" 
     - "db-service"
     - "cache-service"
-  excluded_services: []
-  min_healthy_instances: 2
-  max_instances_to_kill: 1
+  excluded_services: []        # Servicios que NUNCA serán afectados
+  min_healthy_instances: 1     # Mínimo de instancias que deben estar saludables
+  max_instances_to_kill: 1     # Máximo de instancias a terminar simultáneamente
 
-# Configuración de experimentos
+# =============================================================================
+# CONFIGURACIÓN DE EXPERIMENTOS
+# =============================================================================
+# Define los tipos de experimentos y sus parámetros
 experiments:
+  # ─────────────────────────────────────────────────────────────────
+  # TERMINACIÓN DE INSTANCIAS (Chaos Monkey clásico)
+  # ─────────────────────────────────────────────────────────────────
   instance_termination:
     enabled: true
-    probability: 0.1
-    check_interval_seconds: 300
+    probability: 0.3           # 30% de probabilidad de ejecución
+    check_interval_seconds: 30 # Verificar cada 30 segundos (vs 300 original)
   
+  # ─────────────────────────────────────────────────────────────────  
+  # LATENCIA DE RED
+  # ─────────────────────────────────────────────────────────────────
   network_latency:
     enabled: true
-    probability: 0.05
-    delay_ms: 500
-    variance_ms: 100
+    probability: 0.15          # 15% de probabilidad de ejecución
+    delay_ms: 300             # Latencia base en milisegundos (vs 500 original)
+    variance_ms: 50           # Variación aleatoria (vs 100 original)
     
+  # ─────────────────────────────────────────────────────────────────
+  # AGOTAMIENTO DE RECURSOS 
+  # ─────────────────────────────────────────────────────────────────
   resource_exhaustion:
     enabled: true
-    probability: 0.03
-    cpu_threshold: 0.9
-    memory_threshold: 0.9
+    probability: 0.1           # 10% de probabilidad de ejecución
+    cpu_threshold: 0.85       # 85% de uso de CPU para considerar crítico
+    memory_threshold: 0.85    # 85% de uso de memoria para considerar crítico
     
+  # ─────────────────────────────────────────────────────────────────
+  # PARTICIÓN DE RED (Avanzado)
+  # ─────────────────────────────────────────────────────────────────
   network_partition:
-    enabled: false
-    probability: 0.01
-    isolation_type: "partial"
+    enabled: false            # Deshabilitado por defecto (muy disruptivo)
+    probability: 0.05         # 5% de probabilidad si se habilita
+    isolation_type: "partial" # "partial" o "complete"
     
+  # ─────────────────────────────────────────────────────────────────
+  # CHAOS GORILLA (Falla de datacenter completo - MUY DESTRUCTIVO)
+  # ─────────────────────────────────────────────────────────────────
   chaos_gorilla:
-    enabled: false
-    probability: 0.001
+    enabled: false            # Deshabilitado por defecto
+    probability: 0.01         # 1% de probabilidad si se habilita
     
+  # ─────────────────────────────────────────────────────────────────
+  # CHAOS KONG (Falla regional completa - EXTREMADAMENTE DESTRUCTIVO)
+  # ─────────────────────────────────────────────────────────────────
   chaos_kong:
-    enabled: false
-    # Requiere confirmación manual
+    enabled: false            # Deshabilitado por defecto
+    # IMPORTANTE: Requiere confirmación manual antes de ejecutarse
 
-# Configuración de monitoreo
+# =============================================================================
+# CONFIGURACIÓN DE MONITOREO
+# =============================================================================
+# Sistema de métricas, alertas y observabilidad
 monitoring:
-  collection_interval_seconds: 5
-  metrics_retention_hours: 24
+  collection_interval_seconds: 2    # Recolectar métricas cada 2 segundos (vs 5 original)
+  metrics_retention_hours: 2        # Mantener métricas por 2 horas (vs 24 original)
+  
+  # ─────────────────────────────────────────────────────────────────
+  # UMBRALES DE ALERTAS
+  # ─────────────────────────────────────────────────────────────────
   alert_thresholds:
-    response_time_ms: 1000
-    error_rate_percent: 5
-    availability_percent: 90
-    cpu_usage_percent: 85
-    memory_usage_percent: 85
+    response_time_ms: 500       # Alertar si tiempo de respuesta > 500ms (vs 1000)
+    error_rate_percent: 3       # Alertar si tasa de error > 3% (vs 5)
+    availability_percent: 90    # Alertar si disponibilidad < 90%
+    cpu_usage_percent: 80       # Alertar si CPU > 80% (vs 85)
+    memory_usage_percent: 80    # Alertar si memoria > 80% (vs 85)
 
-# Configuración de seguridad
+# =============================================================================
+# CONFIGURACIÓN DE SEGURIDAD
+# =============================================================================
+# Medidas de protección para prevenir daños accidentales
 safety:
-  enabled: true
-  dry_run_mode: false
-  require_confirmation_for_destructive: true
-  max_concurrent_experiments: 3
-  emergency_stop_enabled: true
+  enabled: true                              # SIEMPRE mantener habilitado
+  dry_run_mode: false                        # true = solo simular, false = ejecutar realmente
+  require_confirmation_for_destructive: true # Pedir confirmación para experimentos peligrosos
+  max_concurrent_experiments: 2              # Máximo experimentos simultáneos (vs 3)
+  emergency_stop_enabled: true               # Permitir parada de emergencia
 
-# Configuración de servicios
+# =============================================================================
+# CONFIGURACIÓN DE SERVICIOS
+# =============================================================================
+# Define la arquitectura de servicios distribuidos
 services:
+  # ─────────────────────────────────────────────────────────────────
+  # API GATEWAY (Punto de entrada principal)
+  # ─────────────────────────────────────────────────────────────────
   api-service:
     type: "api-gateway"
-    initial_instances: 3
-    min_instances: 2
-    max_instances: 10
+    initial_instances: 3      # Instancias al inicio
+    min_instances: 1          # Mínimo saludable (vs 2 original)
+    max_instances: 6          # Máximo para auto-scaling (vs 10 original)
     region: "us-east-1"
     
+  # ─────────────────────────────────────────────────────────────────
+  # SERVICIO DE AUTENTICACIÓN (Crítico para seguridad)
+  # ─────────────────────────────────────────────────────────────────
   auth-service:
     type: "auth-service"
     initial_instances: 2
     min_instances: 1
-    max_instances: 5
+    max_instances: 4          # Reducido de 5 a 4
     region: "us-east-1"
     
+  # ─────────────────────────────────────────────────────────────────
+  # BASE DE DATOS (Crítico para persistencia)
+  # ─────────────────────────────────────────────────────────────────
   db-service:
     type: "database"
     initial_instances: 2
     min_instances: 1
-    max_instances: 3
+    max_instances: 3          # Sin cambio (ya era 3)
     region: "us-east-1"
     
+  # ─────────────────────────────────────────────────────────────────
+  # CACHE (Mejora performance)
+  # ─────────────────────────────────────────────────────────────────
   cache-service:
     type: "cache"
     initial_instances: 2
     min_instances: 1
-    max_instances: 4
+    max_instances: 4          # Sin cambio (ya era 4)
     region: "us-east-1"
 
-# Configuración de load balancer
+# =============================================================================
+# CONFIGURACIÓN DE LOAD BALANCER
+# =============================================================================
+# Distribución inteligente de tráfico
 load_balancer:
-  strategy: "health_based"  # round_robin, least_connections, random, weighted_round_robin, health_based
-  health_check_interval: 10
+  strategy: "health_based"        # Opciones: round_robin, least_connections, random, 
+                                  #          weighted_round_robin, health_based
+  health_check_interval: 5        # Verificar salud cada 5 segundos (vs 10 original)
   
-# Configuración de reportes
+# =============================================================================
+# CONFIGURACIÓN DE REPORTES
+# =============================================================================
+# Generación automática de reportes y análisis
 reporting:
   enabled: true
   output_directory: "./reports"
   formats: ["html", "json", "csv"]
   include_charts: true
-  auto_generate_interval_hours: 1
+  auto_generate_interval_hours: 0.5     # Generar reporte cada 30 minutos (vs 1 hora)
+
+# =============================================================================
+# NOTAS IMPORTANTES PARA PRODUCCIÓN
+# =============================================================================
+# TIEMPOS PARA DEMO vs PRODUCCIÓN:
+# 
+# DEMO (actual):
+# - check_interval_seconds: 30s
+# - collection_interval_seconds: 2s  
+# - health_check_interval: 5s
+# - auto_generate_interval_hours: 0.5h
+#
+# PRODUCCIÓN (recomendado):
+# - check_interval_seconds: 300s (5 minutos)
+# - collection_interval_seconds: 30s
+# - health_check_interval: 30s  
+# - auto_generate_interval_hours: 4h
+#
+# PROBABILIDADES PARA DEMO vs PRODUCCIÓN:
+# DEMO: instance_termination=0.3, network_latency=0.15, resource_exhaustion=0.1
+# PROD: instance_termination=0.05, network_latency=0.02, resource_exhaustion=0.01

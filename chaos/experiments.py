@@ -229,29 +229,36 @@ class ResourceExhaustionMonkey(ChaosExperiment):
         logger.warning(f"💥 RESOURCE EXHAUSTION: Agotando {self.resource_type} "
                       f"en instancia {target_instance.instance_id}")
         
-        # Simular agotamiento de recursos
+        # Simular agotamiento de recursos con niveles más conservadores
+        if self.resource_type == "cpu":
+            # Simular alto uso de CPU (más conservador)
+            target_instance.metrics.cpu_usage = min(85, self.exhaustion_level * 100)  # Máximo 85%
+            target_instance.introduce_latency(200)  # Latencia moderada por CPU alto
+            logger.info(f"💥 CPU usage aumentado a {target_instance.metrics.cpu_usage}% en {target_instance.instance_id}")
+        elif self.resource_type == "memory":
+            # Simular alto uso de memoria
+            target_instance.metrics.memory_usage = min(90, self.exhaustion_level * 100)  # Máximo 90%
+            target_instance.introduce_latency(150)  # Latencia por swapping
+            logger.info(f"💥 Memory usage aumentado a {target_instance.metrics.memory_usage}% en {target_instance.instance_id}")
+        
+        # Introducir errores ocasionales pero no masivos
+        original_error_rate = target_instance.error_probability
+        target_instance.introduce_errors(min(0.05, original_error_rate * 5))  # Máximo 5%
+        
+        # Mantener el agotamiento durante la duración especificada
         start_time = time.time()
         while not self.should_stop.is_set() and time.time() - start_time < self.duration_seconds:
-            if self.resource_type == "cpu":
-                target_instance.metrics.cpu_usage = self.exhaustion_level * 100
-                # Aumentar tiempo de respuesta por alta CPU
-                target_instance.base_response_time *= 3
-            elif self.resource_type == "memory":
-                target_instance.metrics.memory_usage = self.exhaustion_level * 100
-                # Simular GC pressure con latencia
-                target_instance.base_response_time *= 2
-            
-            # Posible degradación del servicio
-            if self.exhaustion_level > 0.95:
-                target_instance.set_status(target_instance.status.__class__.DEGRADED)
-            
-            time.sleep(5)  # Actualizar cada 5 segundos
+            time.sleep(10)  # Verificar cada 10 segundos
         
         self.results = {
+            "target_service": self.target_service,
+            "target_instance": target_instance.instance_id,
             "resource_type": self.resource_type,
             "exhaustion_level": self.exhaustion_level,
-            "affected_instances": self.affected_instances,
-            "duration_seconds": time.time() - start_time
+            "duration_seconds": time.time() - start_time,
+            "final_cpu_usage": target_instance.metrics.cpu_usage,
+            "final_memory_usage": target_instance.metrics.memory_usage,
+            "errors_introduced": target_instance.error_probability
         }
     
     def cleanup(self):
@@ -308,23 +315,27 @@ class NetworkPartitionMonkey(ChaosExperiment):
         logger.warning(f"💥 NETWORK PARTITION: Aislando {len(instances_to_isolate)} "
                       f"instancias de {self.target_service}")
         
-        # Simular aislamiento
+        # Simular aislamiento con configuración más moderada
         for instance in instances_to_isolate:
             self.isolated_instances.append(instance.instance_id)
-            # Simular pérdida de conectividad
-            instance.error_probability = 0.8  # 80% de errores
-            instance.introduce_latency(10000)  # 10 segundos de latencia
+            # Simular pérdida de conectividad moderada (no extrema)
+            original_error_rate = instance.error_probability
+            instance.error_probability = min(0.3, original_error_rate * 10)  # Máximo 30% en lugar de 80%
+            instance.introduce_latency(2000)  # 2 segundos en lugar de 10
+        
+        logger.info(f"🌐 Partición aplicada a {len(instances_to_isolate)} instancias")
         
         # Mantener aislamiento durante la duración
         start_time = time.time()
         while not self.should_stop.is_set() and time.time() - start_time < self.duration_seconds:
-            time.sleep(10)
+            time.sleep(15)  # Verificar cada 15 segundos
         
         self.results = {
+            "target_service": self.target_service,
             "isolation_type": self.isolation_type,
             "isolated_instances": self.isolated_instances,
-            "total_instances": len(healthy_instances),
-            "isolation_percentage": (len(self.isolated_instances) / len(healthy_instances)) * 100
+            "duration_seconds": time.time() - start_time,
+            "affected_count": len(instances_to_isolate)
         }
     
     def cleanup(self):

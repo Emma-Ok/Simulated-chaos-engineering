@@ -9,6 +9,7 @@ import threading
 from typing import Dict, List, Optional
 from enum import Enum
 import logging
+import uuid
 
 from .service import Service, ServiceInstance, ServiceException
 
@@ -73,6 +74,7 @@ class LoadBalancer:
     def route_request(self, service_name: str, request_data: Dict = None) -> Dict:
         """
         Enruta una request al servicio especificado usando la estrategia configurada.
+        Asegura que las métricas se actualicen tanto en instancia como en servicio.
         """
         start_time = time.time()
         
@@ -86,11 +88,17 @@ class LoadBalancer:
             if not instance:
                 raise ServiceException(f"No hay instancias disponibles para {service_name}")
             
-            # Procesar la request
+            # Procesar la request directamente en la instancia
             response = instance.handle_request(request_data)
             
-            # Actualizar métricas
+            # Actualizar métricas del SERVICIO también (esto faltaba)
             response_time = (time.time() - start_time) * 1000
+            with service.lock:
+                service.request_count += 1
+                service.successful_requests += 1
+                service.total_response_time += response_time
+            
+            # Actualizar métricas del Load Balancer
             self._update_metrics(response_time, success=True)
             
             # Añadir información de routing
@@ -101,7 +109,14 @@ class LoadBalancer:
             return response
             
         except ServiceException as e:
+            # Actualizar métricas de error en ambos lados
             self._update_metrics(0, success=False)
+            if service_name in self.services:
+                service = self.services[service_name]
+                with service.lock:
+                    service.request_count += 1
+                    service.error_count += 1
+            
             logger.error(f"Error en routing hacia {service_name}: {e}")
             raise
     
@@ -131,11 +146,20 @@ class LoadBalancer:
             return random.choice(healthy_instances)
     
     def _round_robin_selection(self, service: Service, instances: List[ServiceInstance]) -> ServiceInstance:
-        """Implementa selección Round Robin"""
+        """
+        Implementa selección Round Robin mejorada para verdadera distribución.
+        """
         with self.lock:
+            if service.name not in self._round_robin_counters:
+                self._round_robin_counters[service.name] = 0
+                
             counter = self._round_robin_counters[service.name]
             selected = instances[counter % len(instances)]
             self._round_robin_counters[service.name] = (counter + 1) % len(instances)
+            
+            logger.debug(f"Round-robin: seleccionada instancia {selected.instance_id} "
+                        f"({counter % len(instances) + 1}/{len(instances)}) para {service.name}")
+            
             return selected
     
     def _least_connections_selection(self, instances: List[ServiceInstance]) -> ServiceInstance:
@@ -318,37 +342,63 @@ class LoadBalancer:
     
     def simulate_traffic(self, requests_per_second: int = 10, duration_seconds: int = 60):
         """
-        Simula tráfico hacia los servicios registrados.
+        Simula tráfico hacia los servicios registrados con manejo robusto de errores.
         Útil para testing y demostración.
+        
+        OPTIMIZACIONES:
+        - Manejo inteligente de errores (pausa progresiva)
+        - Limitación de logs de error para evitar spam
+        - Distribución equilibrada entre servicios
         """
         def traffic_generator():
             end_time = time.time() + duration_seconds
             service_names = list(self.services.keys())
+            consecutive_errors = 0
+            last_error_log = 0
             
             if not service_names:
                 logger.warning("No hay servicios registrados para simular tráfico")
                 return
             
-            while time.time() < end_time:
+            logger.info(f"🌐 Generador de tráfico iniciado: {requests_per_second} RPS")
+            
+            while time.time() < end_time and service_names:
                 try:
                     # Seleccionar servicio aleatorio
                     service_name = random.choice(service_names)
                     
-                    # Simular request
+                    # Simular request con datos realistas
                     request_data = {
                         "user_id": random.randint(1000, 9999),
                         "action": random.choice(["get", "post", "put", "delete"]),
-                        "timestamp": time.time()
+                        "timestamp": time.time(),
+                        "request_id": str(uuid.uuid4())[:8]
                     }
                     
                     self.route_request(service_name, request_data)
+                    consecutive_errors = 0  # Reset contador de errores
                     
                     # Esperar antes de la siguiente request
                     time.sleep(1.0 / requests_per_second)
                     
                 except Exception as e:
-                    logger.error(f"Error en simulación de tráfico: {e}")
-                    time.sleep(0.1)
+                    consecutive_errors += 1
+                    current_time = time.time()
+                    
+                    # Solo loggear errores ocasionalmente para evitar spam
+                    if current_time - last_error_log > 5:  # Cada 5 segundos máximo
+                        logger.error(f"Error en simulación de tráfico: {e}")
+                        last_error_log = current_time
+                    
+                    # Pausa progresiva basada en errores consecutivos
+                    if consecutive_errors <= 5:
+                        time.sleep(1)  # Pausa corta para errores esporádicos
+                    elif consecutive_errors <= 15:
+                        time.sleep(3)  # Pausa media para errores recurrentes
+                    else:
+                        time.sleep(10)  # Pausa larga para fallas masivas
+                        logger.warning(f"⚠️ Múltiples errores consecutivos ({consecutive_errors}), "
+                                     f"reduciendo frecuencia de requests")
         
         traffic_thread = threading.Thread(target=traffic_generator, daemon=True)
         traffic_thread.start()

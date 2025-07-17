@@ -10,29 +10,56 @@ from typing import Dict, Any, List
 from datetime import datetime, timedelta
 import os
 
-def setup_logging(log_level: str = "INFO", log_file: str = None) -> logging.Logger:
+def setup_logging(log_level: str = "INFO", log_file: str = None, colors: bool = True) -> logging.Logger:
     """
-    Configura el sistema de logging para el simulador.
-    """
-    # Configurar formato
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
+    Configura el sistema de logging para el simulador con soporte para colores opcional.
     
-    # Logger raíz
+    Args:
+        log_level: Nivel de logging (DEBUG, INFO, WARNING, ERROR)
+        log_file: Archivo opcional para logging
+        colors: Si True, usa colores en la consola
+    """
     logger = logging.getLogger()
     logger.setLevel(getattr(logging, log_level.upper()))
     
+    # Limpiar handlers existentes
+    for handler in logger.handlers[:]:
+        logger.removeHandler(handler)
+    
     # Handler para consola
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
+    
+    if colors:
+        try:
+            colored_formatter = ColoredFormatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                datefmt='%H:%M:%S'
+            )
+            console_handler.setFormatter(colored_formatter)
+        except:
+            # Fallback a formato normal si hay problemas con colores
+            formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
+            console_handler.setFormatter(formatter)
+    else:
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        console_handler.setFormatter(formatter)
+    
     logger.addHandler(console_handler)
     
     # Handler para archivo si se especifica
     if log_file:
         file_handler = logging.FileHandler(log_file, encoding='utf-8')
-        file_handler.setFormatter(formatter)
+        file_formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(file_formatter)
         logger.addHandler(file_handler)
     
     return logger
@@ -317,25 +344,11 @@ class ColoredFormatter(logging.Formatter):
 
 def setup_colored_logging(log_level: str = "INFO") -> logging.Logger:
     """
-    Configura logging con colores.
+    Configuración de logging con colores (mantiene compatibilidad).
+    
+    Deprecated: Usar setup_logging(colors=True) en su lugar.
     """
-    logger = logging.getLogger()
-    logger.setLevel(getattr(logging, log_level.upper()))
-    
-    # Limpiar handlers existentes
-    for handler in logger.handlers[:]:
-        logger.removeHandler(handler)
-    
-    # Handler con colores
-    console_handler = logging.StreamHandler()
-    colored_formatter = ColoredFormatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%H:%M:%S'
-    )
-    console_handler.setFormatter(colored_formatter)
-    logger.addHandler(console_handler)
-    
-    return logger
+    return setup_logging(log_level=log_level, colors=True)
 
 def truncate_string(text: str, max_length: int = 50) -> str:
     """

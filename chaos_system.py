@@ -1,12 +1,19 @@
 """
 Sistema principal de Chaos Engineering.
 Integra todos los componentes y proporciona una interfaz unificada.
+
+TIEMPOS OPTIMIZADOS PARA DEMO:
+- Simulación máxima: 4 minutos
+- Tráfico por defecto: 4 minutos
+- Experimentos programados: intervalos cortos
+- Mantenimiento del sistema: cada minuto
 """
 
 import time
 import threading
 import logging
 from typing import Dict, List, Optional, Any
+import random # Added for _configure_service_variability
 
 # Importar componentes principales
 from core.service import Service, ServiceType
@@ -27,54 +34,83 @@ logger = logging.getLogger(__name__)
 class ChaosEngineeringSystem:
     """
     Sistema principal que orquesta todos los componentes de Chaos Engineering.
-    Proporciona una interfaz unificada para configurar, ejecutar y monitorear experimentos.
+    
+    CARACTERÍSTICAS PRINCIPALES:
+    - Gestión de servicios distribuidos
+    - Ejecución de experimentos de chaos
+    - Monitoreo en tiempo real
+    - Generación de reportes
+    - Patrones de resiliencia
+    
+    OPTIMIZADO PARA DEMOS RÁPIDAS:
+    - Tiempos de simulación cortos (4 minutos máximo)
+    - Intervalos de monitoreo frecuentes
+    - Recuperación automática rápida
     """
     
     def __init__(self, config_path: str = None):
-        # Configuración
+        # ═══════════════════════════════════════════════════════════════════
+        # CONFIGURACIÓN INICIAL
+        # ═══════════════════════════════════════════════════════════════════
         self.config = {}
         if config_path:
             self.config = load_config(config_path)
         
-        # Componentes principales
-        self.services: Dict[str, Service] = {}
-        self.load_balancer: Optional[LoadBalancer] = None
-        self.monitoring: Optional[MonitoringSystem] = None
-        self.chaos_monkey: Optional[ChaosMonkey] = None
-        self.experiment_runner: Optional[ExperimentRunner] = None
-        self.report_generator: Optional[ReportGenerator] = None
+        # ═══════════════════════════════════════════════════════════════════
+        # COMPONENTES PRINCIPALES
+        # ═══════════════════════════════════════════════════════════════════
+        self.services: Dict[str, Service] = {}              # Servicios registrados
+        self.load_balancer: Optional[LoadBalancer] = None   # Balanceador de carga
+        self.monitoring: Optional[MonitoringSystem] = None  # Sistema de monitoreo
+        self.chaos_monkey: Optional[ChaosMonkey] = None     # Motor de chaos
+        self.experiment_runner: Optional[ExperimentRunner] = None  # Ejecutor de experimentos
+        self.report_generator: Optional[ReportGenerator] = None    # Generador de reportes
         
-        # Estado del sistema
-        self.is_running = False
-        self.start_time = None
+        # ═══════════════════════════════════════════════════════════════════
+        # ESTADO DEL SISTEMA
+        # ═══════════════════════════════════════════════════════════════════
+        self.is_running = False          # Estado de ejecución
+        self.start_time = None          # Momento de inicio
         
-        # Patrones de resiliencia
+        # ═══════════════════════════════════════════════════════════════════
+        # PATRONES DE RESILIENCIA
+        # ═══════════════════════════════════════════════════════════════════
         self.resilience_patterns: Dict[str, ResiliencePatterns] = {}
         
-        # Threading
-        self.system_thread = None
-        self.lock = threading.RLock()
+        # ═══════════════════════════════════════════════════════════════════
+        # THREADING PARA OPERACIONES ASÍNCRONAS
+        # ═══════════════════════════════════════════════════════════════════
+        self.system_thread = None       # Hilo de mantenimiento
+        self.lock = threading.RLock()   # Lock para thread safety
         
         logger.info("🔥 ChaosEngineeringSystem inicializado")
     
     def initialize(self):
         """
         Inicializa todos los componentes del sistema basándose en la configuración.
+        
+        ORDEN DE INICIALIZACIÓN:
+        1. Load Balancer (distribución de tráfico)
+        2. Servicios (arquitectura distribuida)
+        3. Monitoreo (observabilidad)
+        4. Chaos Components (experimentos)
+        5. Reportes (análisis)
+        6. Patrones de Resiliencia (protección)
         """
         logger.info("🚀 Inicializando sistema de Chaos Engineering...")
         
         try:
-            # Inicializar componentes base
+            # ▓▓▓ FASE 1: Inicializar componentes base ▓▓▓
             self._initialize_load_balancer()
             self._initialize_services()
             self._initialize_monitoring()
             self._initialize_chaos_components()
             self._initialize_reports()
             
-            # Configurar patrones de resiliencia
+            # ▓▓▓ FASE 2: Configurar patrones avanzados ▓▓▓
             self._setup_resilience_patterns()
             
-            # Aplicar configuración
+            # ▓▓▓ FASE 3: Aplicar configuración final ▓▓▓
             self._apply_configuration()
             
             logger.info("✅ Sistema inicializado correctamente")
@@ -84,55 +120,132 @@ class ChaosEngineeringSystem:
             raise
     
     def _initialize_load_balancer(self):
-        """Inicializa el load balancer"""
+        """Inicializa el balanceador de carga con estrategia configurada para mejor distribución"""
         lb_config = self.config.get("load_balancer", {})
-        strategy_name = lb_config.get("strategy", "health_based")
+        strategy_name = lb_config.get("strategy", "round_robin")  # Cambiado de health_based a round_robin
         
         try:
             strategy = LoadBalancingStrategy(strategy_name)
         except ValueError:
-            logger.warning(f"Estrategia de LB inválida: {strategy_name}, usando health_based")
-            strategy = LoadBalancingStrategy.HEALTH_BASED
+            logger.warning(f"Estrategia de LB inválida: {strategy_name}, usando round_robin")
+            strategy = LoadBalancingStrategy.ROUND_ROBIN  # Cambiado de HEALTH_BASED a ROUND_ROBIN
         
         self.load_balancer = LoadBalancer("main-lb", strategy)
         
         # Registrar servicios existentes en el load balancer
         self._register_existing_services_in_component(self.load_balancer, "register_service")
         
-        logger.info(f"Load Balancer inicializado con estrategia: {strategy.value}")
+        logger.info(f"⚖️ Load Balancer inicializado con estrategia: {strategy.value}")
     
     def _initialize_services(self):
-        """Inicializa los servicios configurados"""
-        services_config = self.config.get("services", {})
+        """
+        Inicializa servicios con configuración optimizada para demos.
         
-        for service_name, service_config in services_config.items():
+        SERVICIOS CONFIGURADOS:
+        - API Service: 5 instancias (puerto web)
+        - Auth Service: 4 instancias (autenticación)  
+        - Database Service: 3 instancias (persistencia)
+        - Cache Service: 4 instancias (memoria)
+        
+        OPTIMIZACIONES:
+        - Más instancias para mejores métricas
+        - Configuración variada para diferentes comportamientos
+        - Regiones distribuidas para simular geo-distribución
+        """
+        service_configs = [
+            {
+                "name": "api-service",
+                "type": ServiceType.API_GATEWAY,
+                "instances": 5,  # Aumentado de 3 a 5
+                "min_instances": 2,
+                "max_instances": 10
+            },
+            {
+                "name": "auth-service", 
+                "type": ServiceType.AUTH_SERVICE,  # Corregido de AUTHENTICATION a AUTH_SERVICE
+                "instances": 4,  # Aumentado de 2 a 4
+                "min_instances": 2,
+                "max_instances": 8
+            },
+            {
+                "name": "db-service",
+                "type": ServiceType.DATABASE,
+                "instances": 3,  # Instancias conservadoras para DB
+                "min_instances": 2,
+                "max_instances": 6
+            },
+            {
+                "name": "cache-service",
+                "type": ServiceType.CACHE,
+                "instances": 4,  # Aumentado de 2 a 4
+                "min_instances": 2,
+                "max_instances": 8
+            }
+        ]
+        
+        logger.info("🏗️ Inicializando servicios con configuración optimizada...")
+        
+        for config in service_configs:
             try:
-                # Determinar tipo de servicio
-                service_type_str = service_config.get("type", "api-gateway")
-                service_type = ServiceType(service_type_str)
-                
-                # Crear servicio
                 service = Service(
-                    name=service_name,
-                    service_type=service_type,
-                    initial_instances=service_config.get("initial_instances", 2),
-                    region=service_config.get("region", "us-east-1")
+                    name=config["name"],
+                    service_type=config["type"],
+                    initial_instances=config["instances"],
+                    min_instances=config["min_instances"],
+                    max_instances=config["max_instances"]
                 )
                 
-                # Configurar límites
-                service.min_instances = service_config.get("min_instances", 1)
-                service.max_instances = service_config.get("max_instances", 10)
-                
-                self.services[service_name] = service
-                
-                # Registrar en load balancer
-                if self.load_balancer:
-                    self.load_balancer.register_service(service)
-                
-                logger.info(f"Servicio {service_name} inicializado con {service_config.get('initial_instances', 2)} instancias")
+                self.services[config["name"]] = service
+                logger.info(f"✅ Servicio {config['name']} creado con {config['instances']} instancias")
                 
             except Exception as e:
-                logger.error(f"Error inicializando servicio {service_name}: {e}")
+                logger.error(f"❌ Error creando servicio {config['name']}: {e}")
+                raise
+        
+        # Configurar variabilidad en las instancias para métricas más interesantes
+        self._configure_service_variability()
+        
+        # Registrar servicios en el load balancer
+        self._register_existing_services_in_component(self.load_balancer, "register_service")
+        
+        logger.info(f"✅ {len(self.services)} servicios inicializados con "
+                   f"{sum(len(s.instances) for s in self.services.values())} instancias totales")
+
+    def _configure_service_variability(self):
+        """
+        Configura variabilidad en servicios para generar métricas más interesantes.
+        
+        OPTIMIZACIONES:
+        - Diferentes regiones para geo-distribución
+        - Latencias base variadas
+        - Probabilidades de error ligeramente diferentes
+        """
+        regions = ["us-east-1", "us-west-2", "eu-west-1", "ap-southeast-1"]
+        
+        for service_name, service in self.services.items():
+            # Distribuir instancias en diferentes regiones
+            instances_list = list(service.instances.values())
+            for i, instance in enumerate(instances_list):
+                instance.region = regions[i % len(regions)]
+                
+                # Configurar latencias base diferentes por servicio
+                if service.service_type == ServiceType.DATABASE:
+                    instance.base_response_time = random.uniform(100, 300)  # DB más lenta
+                elif service.service_type == ServiceType.CACHE:
+                    instance.base_response_time = random.uniform(20, 80)    # Cache más rápida
+                elif service.service_type == ServiceType.API_GATEWAY:
+                    instance.base_response_time = random.uniform(50, 150)   # API intermedia
+                elif service.service_type == ServiceType.AUTH_SERVICE:  # Corregido
+                    instance.base_response_time = random.uniform(70, 200)   # Auth intermedia-lenta
+                else:
+                    instance.base_response_time = random.uniform(70, 200)   # Default intermedia-lenta
+                
+                # Pequeñas variaciones en error probability para realismo
+                base_error = 0.005  # 0.5% base
+                variation = random.uniform(0.8, 1.5)  # ±50% variación
+                instance.error_probability = base_error * variation
+        
+        logger.info("🔧 Variabilidad configurada en servicios para métricas realistas")
     
     def _initialize_monitoring(self):
         """Inicializa el sistema de monitoreo"""
@@ -251,7 +364,15 @@ class ChaosEngineeringSystem:
         logger.info("Configuración aplicada")
     
     def start(self):
-        """Inicia el sistema completo"""
+        """
+        Inicia el sistema completo con configuración optimizada para demos.
+        
+        PROCESOS QUE SE INICIAN:
+        - Sistema de monitoreo (intervalos cortos)
+        - Chaos Monkey (si está habilitado)
+        - Simulación de tráfico (duración limitada)
+        - Mantenimiento automático (cada minuto)
+        """
         if self.is_running:
             logger.warning("El sistema ya está en ejecución")
             return
@@ -262,28 +383,33 @@ class ChaosEngineeringSystem:
             self.is_running = True
             self.start_time = time.time()
             
-            # Inicializar si no se ha hecho
+            # ▓▓▓ INICIALIZACIÓN AUTOMÁTICA ▓▓▓
             if not self.services:
                 self.initialize()
             
-            # Iniciar monitoreo
+            # ▓▓▓ INICIAR MONITOREO ▓▓▓
             if self.monitoring:
                 self.monitoring.start_monitoring()
+                logger.info("📊 Sistema de monitoreo iniciado")
             
-            # Iniciar Chaos Monkey
+            # ▓▓▓ INICIAR CHAOS MONKEY ▓▓▓
             if self.chaos_monkey and self.chaos_monkey.is_enabled:
                 self.chaos_monkey.start()
+                logger.info("🐒 Chaos Monkey activado")
             
-            # Iniciar simulación de tráfico
+            # ▓▓▓ INICIAR SIMULACIÓN DE TRÁFICO (OPTIMIZADO) ▓▓▓
             if self.load_balancer:
+                # OPTIMIZADO: Tráfico moderado para evitar saturación durante chaos
                 self.load_balancer.simulate_traffic(
-                    requests_per_second=10,
-                    duration_seconds=3600  # 1 hora
+                    requests_per_second=8,      # Reducido de 15 a 8 para menos errores
+                    duration_seconds=240        # 4 minutos
                 )
+                logger.info("🌐 Simulación de tráfico iniciada (8 RPS, 4 minutos)")
             
-            # Iniciar hilo de mantenimiento del sistema
+            # ▓▓▓ INICIAR MANTENIMIENTO DEL SISTEMA ▓▓▓
             self.system_thread = threading.Thread(target=self._system_maintenance_loop, daemon=True)
             self.system_thread.start()
+            logger.info("🔧 Mantenimiento del sistema iniciado")
             
             logger.info("✅ Sistema iniciado correctamente")
             
@@ -293,52 +419,77 @@ class ChaosEngineeringSystem:
             raise
     
     def stop(self):
-        """Detiene el sistema completo"""
+        """
+        Detiene el sistema completo de forma ordenada y sin duplicaciones.
+        
+        ORDEN DE PARADA:
+        1. Marcar sistema como detenido
+        2. Detener experimentos activos
+        3. Detener Chaos Monkey
+        4. Detener monitoreo
+        5. Cerrar load balancer (que cierra servicios)
+        """
         logger.info("🛑 Deteniendo sistema de Chaos Engineering...")
         
         self.is_running = False
         
-        # Detener Chaos Monkey
-        if self.chaos_monkey:
-            self.chaos_monkey.stop()
-        
-        # Detener experimentos activos
+        # ▓▓▓ DETENER EXPERIMENTOS ▓▓▓
         if self.experiment_runner:
             self.experiment_runner.stop_all_experiments()
         
-        # Detener monitoreo
+        # ▓▓▓ DETENER CHAOS MONKEY ▓▓▓
+        if self.chaos_monkey:
+            self.chaos_monkey.stop()
+        
+        # ▓▓▓ DETENER MONITOREO ▓▓▓
         if self.monitoring:
             self.monitoring.stop_monitoring()
         
-        # Cerrar servicios
-        for service in self.services.values():
-            service.shutdown()
-        
-        # Cerrar load balancer
+        # ▓▓▓ CERRAR LOAD BALANCER (incluye servicios) ▓▓▓
         if self.load_balancer:
             self.load_balancer.shutdown()
+        else:
+            # Si no hay load balancer, cerrar servicios directamente
+            for service in self.services.values():
+                service.shutdown()
         
         logger.info("✅ Sistema detenido")
     
     def _system_maintenance_loop(self):
-        """Loop de mantenimiento del sistema"""
+        """
+        Loop de mantenimiento del sistema con intervalos optimizados para demos.
+        
+        TAREAS DE MANTENIMIENTO:
+        - Generación automática de reportes
+        - Health checks del sistema
+        - Limpieza de recursos
+        
+        FRECUENCIA: Cada 30 segundos (vs 60 segundos original)
+        """
         while self.is_running:
             try:
                 self._maybe_generate_automatic_report()
                 self._perform_system_health_check()
-                time.sleep(60)
+                time.sleep(30)  # ⏱️ OPTIMIZADO: 30s vs 60s original
             except Exception as e:
                 logger.error(f"Error en loop de mantenimiento: {e}")
                 time.sleep(10)
 
     def _maybe_generate_automatic_report(self):
-        """Verifica si es momento de generar un reporte automático y lo genera si corresponde."""
+        """
+        Verifica si es momento de generar un reporte automático.
+        
+        OPTIMIZADO: Genera reportes cada 30 minutos (vs 1 hora original)
+        """
         if not self.report_generator:
             return
         reporting_config = self.config.get("reporting", {})
         if not reporting_config.get("enabled", True):
             return
-        interval_hours = reporting_config.get("auto_generate_interval_hours", 1)
+        
+        # ⏱️ OPTIMIZADO: 0.5 horas (30 minutos) vs 1 hora original
+        interval_hours = reporting_config.get("auto_generate_interval_hours", 0.5)
+        
         if hasattr(self, '_last_report_time'):
             if time.time() - self._last_report_time > interval_hours * 3600:
                 self._generate_automatic_report()
@@ -551,79 +702,159 @@ class ChaosEngineeringSystem:
         
         logger.critical("🚨 Parada de emergencia completada")
     
-    def run_simulation(self, duration_minutes: int = 30):
+    def run_simulation(self, duration_minutes: int = 4):
         """
         Ejecuta una simulación completa con tráfico y experimentos.
-        Método principal para demostraciones.
+        
+        CARACTERÍSTICAS DE LA SIMULACIÓN:
+        - Duración por defecto: 4 minutos (vs 30 minutos original)
+        - Experimentos programados automáticamente
+        - Monitoreo continuo
+        - Reporte final automático
+        
+        Args:
+            duration_minutes: Duración de la simulación (máximo recomendado: 4)
         """
+        # ⚠️ VALIDACIÓN DE TIEMPO MÁXIMO
+        if duration_minutes > 4:
+            logger.warning(f"⚠️ Duración {duration_minutes}min excede el máximo recomendado de 4min")
+        
         logger.info(f"🎮 Iniciando simulación de {duration_minutes} minutos")
         try:
             if not self.is_running:
                 self.initialize()
                 self.start()
+            
             simulation_start = time.time()
             end_time = simulation_start + (duration_minutes * 60)
+            
+            # ▓▓▓ PROGRAMAR EXPERIMENTOS AUTOMÁTICOS ▓▓▓
+            self._schedule_demo_experiments(duration_minutes)
+            
+            # ▓▓▓ MONITOREAR SIMULACIÓN ▓▓▓
             self._monitor_simulation(simulation_start, end_time)
+            
+            # ▓▓▓ GENERAR REPORTE FINAL ▓▓▓
             logger.info("📊 Generando reporte final de simulación...")
             report_files = self.generate_report(formats=["html", "json"])
             logger.info(f"✅ Simulación completada. Reporte: {report_files}")
+            
         except Exception as e:
             logger.error(f"❌ Error en simulación: {e}")
             raise
         finally:
             logger.info("🧹 Limpiando simulación...")
 
-    def _get_default_experiment_schedule(self):
-        """Devuelve la programación por defecto de experimentos automáticos."""
+    def _schedule_demo_experiments(self, duration_minutes: int):
+        """
+        Programa experimentos automáticos optimizados para la duración de la demo.
+        
+        EXPERIMENTOS PROGRAMADOS:
+        - Doctor Monkey: Diagnóstico inicial (30s)
+        - Latency Test: Prueba de latencia (60s después)
+        - Resource Test: Agotamiento de recursos (120s después, si hay tiempo)
+        """
+        if duration_minutes < 2:
+            logger.info("⏱️ Simulación muy corta, sin experimentos automáticos")
+            return
+        
         first_service = list(self.services.keys())[0] if self.services else None
-        return [
-            {"delay": 60, "type": "doctor_monkey", "name": "health-check-1"},
-            {"delay": 300, "type": "latency", "name": "latency-test-1", "target_service": first_service},
-            {"delay": 600, "type": "resource_exhaustion", "name": "cpu-test-1", "target_service": first_service},
+        if not first_service:
+            logger.warning("No hay servicios disponibles para experimentos")
+            return
+        
+        # ▓▓▓ EXPERIMENTOS OPTIMIZADOS PARA TIEMPO CORTO ▓▓▓
+        experiments = [
+            {"delay": 30, "type": "doctor_monkey", "name": "health-check-demo"},  # 30s después del inicio
         ]
-
-    def _schedule_experiments(self, experiment_schedule, duration_minutes):
-        """Programa los experimentos automáticos en hilos separados."""
-        scheduled_experiments = []
-        for schedule in experiment_schedule:
-            if schedule["delay"] < duration_minutes * 60:
-                exp_thread = threading.Thread(
-                    target=self._run_scheduled_experiment, args=(schedule,), daemon=True
-                )
-                exp_thread.start()
-                scheduled_experiments.append(exp_thread)
-        return scheduled_experiments
+        
+        # Solo añadir más experimentos si hay tiempo suficiente
+        if duration_minutes >= 3:
+            experiments.append({
+                "delay": 90, "type": "latency", "name": "latency-demo", 
+                "target_service": first_service, "latency_ms": 400, "duration_seconds": 60
+            })
+        
+        if duration_minutes >= 4:
+            experiments.append({
+                "delay": 180, "type": "resource_exhaustion", "name": "resource-demo",
+                "target_service": first_service, "resource_type": "cpu", "duration_seconds": 60
+            })
+        
+        # ▓▓▓ PROGRAMAR EXPERIMENTOS EN HILOS SEPARADOS ▓▓▓
+        for experiment in experiments:
+            exp_thread = threading.Thread(
+                target=self._run_scheduled_experiment, 
+                args=(experiment,), 
+                daemon=True
+            )
+            exp_thread.start()
+        
+        logger.info(f"🧪 {len(experiments)} experimentos programados para {duration_minutes} minutos")
 
     def _run_scheduled_experiment(self, exp_schedule):
-        """Ejecuta un experimento programado después de un retardo."""
+        """
+        Ejecuta un experimento programado después de un retardo.
+        
+        MANEJO DE ERRORES: Captura y registra errores sin interrumpir la simulación
+        """
         time.sleep(exp_schedule["delay"])
+        
+        if not self.is_running:
+            logger.debug("Sistema detenido, cancelando experimento programado")
+            return
+        
         try:
             kwargs = {k: v for k, v in exp_schedule.items() if k not in ["delay", "type"]}
-            if exp_schedule.get("target_service"):
-                self.run_chaos_experiment(exp_schedule["type"], **kwargs)
+            exp_id = self.run_chaos_experiment(exp_schedule["type"], **kwargs)
+            logger.info(f"🔬 Experimento programado iniciado: {exp_schedule['type']} ({exp_id})")
         except Exception as e:
-            logger.error(f"Error en experimento programado: {e}")
+            logger.error(f"Error en experimento programado {exp_schedule.get('name', 'unknown')}: {e}")
 
     def _monitor_simulation(self, simulation_start, end_time):
-        """Monitorea la simulación y muestra el estado periódicamente."""
+        """
+        Monitorea la simulación y muestra el estado periódicamente.
+        
+        OPTIMIZADO: Reportes cada minuto (vs 2 minutos original)
+        """
         last_status_time = 0
+        
         while time.time() < end_time and self.is_running:
             current_time = time.time()
-            if current_time - last_status_time > 120:
+            
+            # ⏱️ OPTIMIZADO: Reportar cada 60s vs 120s original
+            if current_time - last_status_time > 60:
                 elapsed = (current_time - simulation_start) / 60
                 remaining = (end_time - current_time) / 60
-                logger.info(f"📊 Simulación - Transcurrido: {elapsed:.1f}m, Restante: {remaining:.1f}m")
+                logger.info(f"📊 Simulación - ⏱️ Transcurrido: {elapsed:.1f}m, Restante: {remaining:.1f}m")
                 self._log_basic_metrics()
                 last_status_time = current_time
-            time.sleep(10)
+            
+            time.sleep(5)  # Verificar cada 5 segundos
 
     def _log_basic_metrics(self):
-        """Muestra métricas básicas y alertas activas."""
+        """
+        Muestra métricas básicas y alertas activas.
+        
+        MÉTRICAS MOSTRADAS:
+        - Número de alertas activas
+        - Estado general del sistema
+        - Servicios saludables vs total
+        """
         if self.monitoring:
             dashboard = self.monitoring.get_dashboard_data()
             active_alerts = len(dashboard.get("alerts", []))
+            
             if active_alerts > 0:
                 logger.warning(f"⚠️ Alertas activas: {active_alerts}")
+            
+            # Mostrar estado de servicios
+            services_data = dashboard.get("service_metrics", {})
+            healthy_services = sum(1 for s in services_data.values() if s.get("availability", 0) > 90)
+            total_services = len(services_data)
+            
+            if total_services > 0:
+                logger.info(f"🏥 Servicios saludables: {healthy_services}/{total_services}")
     
     def configure_experiments(self, config: Dict[str, Any]):
         """Configura experimentos basándose en un diccionario de configuración"""
