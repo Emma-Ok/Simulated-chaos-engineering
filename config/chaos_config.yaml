@@ -35,7 +35,7 @@ targets:
     - "cache-service"
   excluded_services: []        # Servicios que NUNCA serán afectados
   min_healthy_instances: 1     # Mínimo de instancias que deben estar saludables
-  max_instances_to_kill: 1     # Máximo de instancias a terminar simultáneamente
+  max_instances_to_kill: 2     # Máximo de instancias a terminar simultáneamente
 
 # =============================================================================
 # CONFIGURACIÓN DE EXPERIMENTOS

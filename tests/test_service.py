@@ -25,7 +25,7 @@ class TestServiceInstance(unittest.TestCase):
         self.assertEqual(self.instance.instance_id, "test-instance-1")
         self.assertEqual(self.instance.service_name, "test-service")
         self.assertEqual(self.instance.status, ServiceStatus.HEALTHY)
-        self.assertTrue(self.instance.status == ServiceStatus.HEALTHY)
+        self.assertEqual(self.instance.status, ServiceStatus.HEALTHY)
     
     def test_health_check(self):
         """Test de health check"""
@@ -91,18 +91,18 @@ class TestServiceInstance(unittest.TestCase):
     def test_auto_restart_simulation(self):
         """Test de simulación de reinicio automático"""
         # Configurar auto-restart
-        True  # Auto-restart simulado = True
+        # (Auto-restart simulado)
         
         # Terminar instancia
         self.instance.terminate()
-        self.assertFalse(self.instance.status == ServiceStatus.HEALTHY)
+        self.assertNotEqual(self.instance.status, ServiceStatus.HEALTHY)
         
         # Simular paso del tiempo para auto-restart
         time.sleep(0.1)  # Simular delay mínimo
         
         # El auto-restart debería activarse (en implementación real)
         # Aquí verificamos que el mecanismo está configurado
-        self.assertTrue(True)  # Auto-restart simulado
+        self.assertEqual(self.instance.status, ServiceStatus.TERMINATED)  # Verifica que la instancia sigue terminada (simulación)
 
 class TestService(unittest.TestCase):
     """Tests para la clase Service"""

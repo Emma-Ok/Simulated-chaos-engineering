@@ -57,6 +57,9 @@ class ReportGenerator:
         charts = {}
         if include_charts and PLOTLY_AVAILABLE:
             charts = self._generate_charts(report_data)
+            print(f"✅ Generando {len(charts)} gráficas interactivas...")
+        elif not PLOTLY_AVAILABLE:
+            logger.warning("Plotly no disponible - gráficas omitidas del reporte")
         
         # Generar reportes en diferentes formatos
         output_files = {}
@@ -87,7 +90,8 @@ class ReportGenerator:
             "monitoring": {},
             "chaos_monkey": {},
             "experiments": {},
-            "patterns": {}
+            "patterns": {},
+            "phase_data": {}
         }
         
         try:
@@ -95,17 +99,21 @@ class ReportGenerator:
             if hasattr(chaos_system, 'get_system_status'):
                 data["system_info"] = chaos_system.get_system_status()
             
+            # Datos de fases si están disponibles
+            if hasattr(chaos_system, '_phase_data'):
+                data["phase_data"] = chaos_system._phase_data
+            
             # Servicios
             if hasattr(chaos_system, 'services'):
                 for service_name, service in chaos_system.services.items():
                     data["services"][service_name] = service.get_service_metrics()
             
             # Load Balancer
-            if hasattr(chaos_system, 'load_balancer'):
+            if hasattr(chaos_system, 'load_balancer') and chaos_system.load_balancer is not None:
                 data["load_balancer"] = chaos_system.load_balancer.get_load_balancer_metrics()
             
             # Sistema de monitoreo
-            if hasattr(chaos_system, 'monitoring'):
+            if hasattr(chaos_system, 'monitoring') and chaos_system.monitoring is not None:
                 data["monitoring"] = {
                     "dashboard_data": chaos_system.monitoring.get_dashboard_data(),
                     "health_report": chaos_system.monitoring.generate_health_report(),
@@ -113,11 +121,11 @@ class ReportGenerator:
                 }
             
             # Chaos Monkey
-            if hasattr(chaos_system, 'chaos_monkey'):
+            if hasattr(chaos_system, 'chaos_monkey') and chaos_system.chaos_monkey is not None:
                 data["chaos_monkey"] = chaos_system.chaos_monkey.get_statistics()
             
             # Experimentos
-            if hasattr(chaos_system, 'experiment_runner'):
+            if hasattr(chaos_system, 'experiment_runner') and chaos_system.experiment_runner is not None:
                 data["experiments"] = chaos_system.experiment_runner.get_all_experiments_status()
             
         except Exception as e:
@@ -373,23 +381,50 @@ class ReportGenerator:
     def _generate_charts(self, report_data: Dict[str, Any]) -> Dict[str, str]:
         """Genera gráficos usando Plotly"""
         charts = {}
-        
+        print("🟢 [DEBUG] Entrando a _generate_charts...")
         try:
             # Gráfico de disponibilidad de servicios
-            charts["availability"] = self._create_availability_chart(report_data)
+            print("[DEBUG] Intentando generar gráfica de disponibilidad...")
+            availability_chart = self._create_availability_chart(report_data)
+            if availability_chart:
+                charts["availability"] = availability_chart
+                print("[DEBUG] Gráfica de disponibilidad generada!")
+            else:
+                print("[DEBUG] Gráfica de disponibilidad VACÍA")
             
             # Gráfico de métricas de tiempo de respuesta
-            charts["response_time"] = self._create_response_time_chart(report_data)
+            print("[DEBUG] Intentando generar gráfica de tiempo de respuesta...")
+            response_chart = self._create_response_time_chart(report_data)
+            if response_chart:
+                charts["response_time"] = response_chart
+                print("[DEBUG] Gráfica de tiempo de respuesta generada!")
+            else:
+                print("[DEBUG] Gráfica de tiempo de respuesta VACÍA")
             
             # Gráfico de alertas
-            charts["alerts"] = self._create_alerts_chart(report_data)
+            print("[DEBUG] Intentando generar gráfica de alertas...")
+            alerts_chart = self._create_alerts_chart(report_data)
+            if alerts_chart:
+                charts["alerts"] = alerts_chart
+                print("[DEBUG] Gráfica de alertas generada!")
+            else:
+                print("[DEBUG] Gráfica de alertas VACÍA")
             
             # Gráfico de experimentos
-            charts["experiments"] = self._create_experiments_chart(report_data)
+            print("[DEBUG] Intentando generar gráfica de experimentos...")
+            experiments_chart = self._create_experiments_chart(report_data)
+            if experiments_chart:
+                charts["experiments"] = experiments_chart
+                print("[DEBUG] Gráfica de experimentos generada!")
+            else:
+                print("[DEBUG] Gráfica de experimentos VACÍA")
             
+            print(f"[DEBUG] Total de gráficas generadas: {len(charts)}")
         except Exception as e:
-            logger.error(f"Error generando gráficos: {e}")
-        
+            logger.error(f"[ERROR] Excepción en _generate_charts: {e}")
+            print(f"[ERROR] Excepción en _generate_charts: {e}")
+            import traceback
+            traceback.print_exc()
         return charts
     
     def _create_availability_chart(self, report_data: Dict[str, Any]) -> str:
@@ -399,22 +434,27 @@ class ReportGenerator:
         if not services:
             return ""
         
-        service_names = list(services.keys())
-        availabilities = [services[name].get("availability", 0) for name in service_names]
-        
-        fig = go.Figure(data=[
-            go.Bar(x=service_names, y=availabilities, 
-                  marker_color=['red' if a < 90 else 'yellow' if a < 95 else 'green' for a in availabilities])
-        ])
-        
-        fig.update_layout(
-            title="Disponibilidad de Servicios (%)",
-            xaxis_title="Servicios",
-            yaxis_title="Disponibilidad (%)",
-            yaxis_range=[0, 100]
-        )
-        
-        return fig.to_html(full_html=False, include_plotlyjs='cdn')
+        try:
+            service_names = list(services.keys())
+            availabilities = [services[name].get("availability", 0) for name in service_names]
+            
+            fig = go.Figure(data=[
+                go.Bar(x=service_names, y=availabilities, 
+                      marker_color=['red' if a < 90 else 'yellow' if a < 95 else 'green' for a in availabilities])
+            ])
+            
+            fig.update_layout(
+                title="Disponibilidad de Servicios (%)",
+                xaxis_title="Servicios",
+                yaxis_title="Disponibilidad (%)",
+                yaxis_range=[0, 100]
+            )
+            
+            return fig.to_html(full_html=False, include_plotlyjs='cdn')
+            
+        except Exception as e:
+            logger.error(f"Error generando gráfica de disponibilidad: {e}")
+            return ""
     
     def _create_response_time_chart(self, report_data: Dict[str, Any]) -> str:
         """Crea gráfico de tiempos de respuesta"""
@@ -513,6 +553,7 @@ class ReportGenerator:
         html += self._html_analysis_section(analysis)
         html += self._html_recommendations_section(analysis)
         html += self._html_risk_section(analysis)
+        html += self._html_phase_comparison_section(report_data)
         html += self._html_services_section(report_data)
         html += '''
 </body>
@@ -575,9 +616,26 @@ class ReportGenerator:
 
     def _html_charts_section(self, charts):
         if not charts:
-            return ''
+            # Mostrar placeholder cuando no hay gráficas
+            return '''
+<div class="section">
+    <h2>📈 Métricas Visuales</h2>
+    <div style="padding: 20px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;">
+        <h4>⚠️ Gráficas en desarrollo</h4>
+        <p>Las gráficas interactivas están siendo generadas. Por el momento, consulta las métricas en la tabla de servicios.</p>
+        <p><strong>Próximas gráficas:</strong></p>
+        <ul>
+            <li>📊 Disponibilidad por servicio</li>
+            <li>⏱️ Tiempos de respuesta</li>
+            <li>🚨 Historia de alertas</li>
+            <li>🧪 Progreso de experimentos</li>
+        </ul>
+    </div>
+</div>
+'''
+        
         html = '<div class="section"><h2>📈 Métricas Visuales</h2>'
-        for chart_html in charts.values():
+        for chart_name, chart_html in charts.items():
             if chart_html:
                 html += f'<div style="margin: 20px 0;">{chart_html}</div>'
         html += self.DIV_CLOSE
@@ -598,7 +656,7 @@ class ReportGenerator:
             html += '<h3>⚠️ Áreas de Mejora</h3>'
             for weakness in weaknesses:
                 html += f'<div class="weakness">{weakness}</div>'
-        html += '</div>'
+        html += self.DIV_CLOSE
         return html
 
     def _html_recommendations_section(self, analysis):
@@ -626,6 +684,65 @@ class ReportGenerator:
                     html += f'<li>{risk}</li>'
                 html += '</ul>'
         html += '</div>'
+        return html
+
+    def _html_phase_comparison_section(self, report_data: Dict[str, Any]) -> str:
+        """Genera una sección de comparación de fases."""
+        phase_data = report_data.get("phase_data", {})
+        if not phase_data:
+            return ""
+
+        # Extraer fases de la estructura correcta
+        phases_summary = phase_data.get("phases_summary", {})
+        if not phases_summary:
+            return ""
+
+        # Generar HTML para la sección de comparación de fases
+        html = '<div class="section"><h2>📊 Comparación de Fases</h2>'
+        
+        # Tabla resumen de fases
+        html += '<h3>📈 Resumen por Fase</h3>'
+        html += '<table><tr><th>Fase</th><th>Duración (s)</th><th>Disponibilidad Inicial</th><th>Disponibilidad Final</th><th>Eventos</th><th>Cambios Principales</th></tr>'
+        
+        for phase_name, phase_info in phases_summary.items():
+            duration = phase_info.get("duration", 0)
+            availability_start = phase_info.get("availability_start", 0)
+            availability_end = phase_info.get("availability_end", 0)
+            events_count = phase_info.get("events_count", 0)
+            major_changes = phase_info.get("major_changes", [])
+            
+            # Color coding basado en cambio de disponibilidad
+            availability_change = availability_end - availability_start
+            if availability_change < -10:
+                row_class = 'style="background-color: #ffebee;"'  # Rojo claro
+            elif availability_change > 10:
+                row_class = 'style="background-color: #e8f5e9;"'  # Verde claro
+            else:
+                row_class = ''
+            
+            html += f'''
+            <tr {row_class}>
+                <td><strong>{phase_name}</strong></td>
+                <td>{duration:.1f}</td>
+                <td>{availability_start:.1f}%</td>
+                <td>{availability_end:.1f}%</td>
+                <td>{events_count}</td>
+                <td>{', '.join(major_changes) if major_changes else 'Sin cambios significativos'}</td>
+            </tr>
+            '''
+        
+        html += '</table>'
+
+        # Insights de fases
+        key_insights = phase_data.get("key_insights", [])
+        if key_insights:
+            html += '<h3>💡 Insights Clave</h3>'
+            html += '<ul>'
+            for insight in key_insights:
+                html += f'<li>{insight}</li>'
+            html += '</ul>'
+
+        html += self.DIV_CLOSE
         return html
 
     def _html_services_section(self, report_data):

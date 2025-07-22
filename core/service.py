@@ -173,12 +173,12 @@ class ServiceInstance:
                 return False
             
             # Simular health check que puede fallar ocasionalmente
-            if random.random() < 0.02:  # Reducido de 0.05 a 0.02 (2% vs 5%)
+            if random.random() < 0.01:  # Reducido aún más de 0.02 a 0.01 (1%)
                 self.set_status(ServiceStatus.DEGRADED)
                 return False
             
             # Auto-recuperación más conservadora
-            if self.status == ServiceStatus.DEGRADED and random.random() < 0.2:  # Reducido de 0.3 a 0.2
+            if self.status == ServiceStatus.DEGRADED and random.random() < 0.4:  # Aumentado de 0.2 a 0.4
                 self.set_status(ServiceStatus.HEALTHY)
                 logger.info(f"Instancia {self.instance_id} se ha recuperado automáticamente")
             
@@ -243,7 +243,7 @@ class Service:
     
     def __init__(self, name: str, service_type: ServiceType, 
                  initial_instances: int = 4, min_instances: int = 2,  # Aumentado de 3,1 a 4,2
-                 max_instances: int = 8, region: str = "us-east-1"):  # Agregado parámetro region
+                 max_instances: int = 10, region: str = "us-east-1"):  # Aumentado para permitir más escalado
         """
         Inicializa un servicio distribuido con más instancias por defecto.
         
@@ -305,10 +305,18 @@ class Service:
             return False
     
     def get_healthy_instances(self) -> List[ServiceInstance]:
-        """Retorna una lista de instancias saludables"""
+        """Devuelve solo instancias realmente *saludables* (estado HEALTHY)."""
+        # Anteriormente se incluían instancias DEGRADED, lo que inflaba la
+        # disponibilidad al 100 % aun cuando había problemas.
         return [
-            instance for instance in self.instances.values()
-            if instance.status in [ServiceStatus.HEALTHY, ServiceStatus.DEGRADED]
+            inst for inst in self.instances.values() if inst.status == ServiceStatus.HEALTHY
+        ]
+    
+    def get_available_instances(self) -> List[ServiceInstance]:
+        """Devuelve instancias que pueden recibir tráfico (HEALTHY + DEGRADED)."""
+        return [
+            inst for inst in self.instances.values() 
+            if inst.status in [ServiceStatus.HEALTHY, ServiceStatus.DEGRADED]
         ]
     
     def get_instance_by_id(self, instance_id: str) -> Optional[ServiceInstance]:
@@ -320,15 +328,15 @@ class Service:
         Maneja una request con métricas mejoradas y tracking preciso.
         Implementa balanceo de carga simple.
         """
-        healthy_instances = self.get_healthy_instances()
+        available_instances = self.get_available_instances()  # Permite DEGRADED para tráfico
         
-        if not healthy_instances:
+        if not available_instances:
             self.error_count += 1
             self.request_count += 1  # Contar también requests fallidos
             raise ServiceException(f"No hay instancias saludables en el servicio {self.name}")
         
         # Balanceo de carga round-robin simple
-        instance = random.choice(healthy_instances)
+        instance = random.choice(available_instances)
         
         try:
             start_time = time.time()
@@ -384,7 +392,7 @@ class Service:
         - Límite de intentos de reinicio
         """
         # Tiempo de espera más realista para restart (30-90 segundos)
-        wait_time = random.uniform(30, 90)  # Aumentado de 5-15 a 30-90 segundos
+        wait_time = random.uniform(10, 30)  # Reducido de 30-90 a 10-30 segundos para demo
         time.sleep(wait_time)
         
         with self.lock:

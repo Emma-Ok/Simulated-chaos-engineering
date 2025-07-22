@@ -255,8 +255,13 @@ class ExperimentRunner:
             healthy_instances = service.get_healthy_instances()
             
             if len(healthy_instances) < service.min_instances + 1:
-                logger.error(f"Servicio {experiment.target_service} no tiene suficientes instancias saludables")
-                return False
+                logger.warning(f"Servicio {experiment.target_service} tiene {len(healthy_instances)} instancias saludables, "
+                             f"mínimo requerido: {service.min_instances + 1}. Permitiendo experimento con precaución.")
+                # Solo bloquear si hay muy pocas instancias (menos que el mínimo absoluto)
+                if len(healthy_instances) < service.min_instances:
+                    logger.error(f"Muy pocas instancias saludables ({len(healthy_instances)} < {service.min_instances})")
+                    return False
+                # Si tenemos al menos min_instances, permitir el experimento con precaución
         
         # Verificaciones específicas por tipo de experimento
         if experiment.experiment_type == ExperimentType.CHAOS_GORILLA:

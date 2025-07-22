@@ -122,28 +122,28 @@ class LoadBalancer:
     
     def _select_instance(self, service: Service) -> Optional[ServiceInstance]:
         """Selecciona una instancia usando la estrategia configurada"""
-        healthy_instances = service.get_healthy_instances()
+        available_instances = service.get_available_instances()  # Incluye DEGRADED
         
-        if not healthy_instances:
+        if not available_instances:
             return None
         
         if self.strategy == LoadBalancingStrategy.RANDOM:
-            return random.choice(healthy_instances)
+            return random.choice(available_instances)
         
         elif self.strategy == LoadBalancingStrategy.ROUND_ROBIN:
-            return self._round_robin_selection(service, healthy_instances)
+            return self._round_robin_selection(service, available_instances)
         
         elif self.strategy == LoadBalancingStrategy.LEAST_CONNECTIONS:
-            return self._least_connections_selection(healthy_instances)
+            return self._least_connections_selection(available_instances)
         
         elif self.strategy == LoadBalancingStrategy.HEALTH_BASED:
-            return self._health_based_selection(healthy_instances)
+            return self._health_based_selection(available_instances)
         
         elif self.strategy == LoadBalancingStrategy.WEIGHTED_ROUND_ROBIN:
-            return self._weighted_round_robin_selection(healthy_instances)
+            return self._weighted_round_robin_selection(available_instances)
         
         else:
-            return random.choice(healthy_instances)
+            return random.choice(available_instances)
     
     def _round_robin_selection(self, service: Service, instances: List[ServiceInstance]) -> ServiceInstance:
         """
